@@ -24,13 +24,12 @@ except:
 def read_file(uploaded_file):
     try:
         if uploaded_file.type == "application/pdf":
-            from PyPDF2 import PdfReader
-            pdf = PdfReader(uploaded_file)
+            import fitz  # PyMuPDF
+            pdf_document = fitz.open(stream=uploaded_file.read(), filetype="pdf")
             text = ""
-            for page in pdf.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
+            for page in pdf_document:
+                text += page.get_text() + "\n"
+            pdf_document.close()
             return text
         elif uploaded_file.type == "text/plain":
             return str(uploaded_file.read(), "utf-8")
