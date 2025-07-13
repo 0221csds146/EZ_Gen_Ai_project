@@ -7,3 +7,4 @@ python-dotenv
 PyMuPDF
 sentence-transformers
 torch
+langchain_groq
