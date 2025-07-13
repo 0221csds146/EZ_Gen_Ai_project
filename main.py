@@ -520,6 +520,7 @@ with st.sidebar:
             st.rerun()
     
     # Display settings
+<<<<<<< HEAD
     st.markdown("### ⚙️ Display Settings")
     max_sources = st.slider("Max Sources to Show", 1, 3, 3)
     
@@ -539,6 +540,10 @@ with st.sidebar:
     st.markdown("[📚  Documentation](https://docs.streamlit.io)")
     st.markdown("[🐙  GitHub](https://github.com/0221csds146/EZ_Gen_Ai_project)")
     st.markdown("[💬  Support](mailto:kumarr22470@gmail.com)")
+=======
+    st.subheader("Display Settings")
+    max_sources = st.slider("Max Sources to Show", 1,3,3)
+>>>>>>> 96a86d64a9ecf464168a6eae846ef96b59781725
 
 # Main content area
 col1, col2 = st.columns([3, 1])
