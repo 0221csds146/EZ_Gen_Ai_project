@@ -1,0 +1,12 @@
+# Ignore environment variables and secrets
+.env
+.streamlit/secrets.toml
+
+# Ignore Python environment
+venv/
+__pycache__/
+*.pyc
+
+# Ignore other common files
+.DS_Store
+*.log
