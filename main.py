@@ -253,17 +253,17 @@ def load_custom_css():
         margin-bottom: 1rem;
     }
     
-    /* Document Preview */
     .document-preview {
-        background: linear-gradient(135deg, #f5f5f5 0%, #eeeeee 100%);
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 1rem;
-        font-family: 'Courier New', monospace;
-        font-size: 0.9em;
-        max-height: 300px;
-        overflow-y: auto;
-    }
+    background: linear-gradient(135deg, #f5f5f5 0%, #eeeeee 100%);
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    max-height: 300px;
+    overflow-y: auto;
+    color: black; /* 👈 Add this line */
+}
     
     /* Footer */
     .footer {
@@ -520,7 +520,6 @@ with st.sidebar:
             st.rerun()
     
     # Display settings
-<<<<<<< HEAD
     st.markdown("### ⚙️ Display Settings")
     max_sources = st.slider("Max Sources to Show", 1, 3, 3)
     
@@ -540,10 +539,6 @@ with st.sidebar:
     st.markdown("[📚  Documentation](https://docs.streamlit.io)")
     st.markdown("[🐙  GitHub](https://github.com/0221csds146/EZ_Gen_Ai_project)")
     st.markdown("[💬  Support](mailto:kumarr22470@gmail.com)")
-=======
-    st.subheader("Display Settings")
-    max_sources = st.slider("Max Sources to Show", 1,3,3)
->>>>>>> 96a86d64a9ecf464168a6eae846ef96b59781725
 
 # Main content area
 col1, col2 = st.columns([3, 1])
