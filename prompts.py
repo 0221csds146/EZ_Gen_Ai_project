@@ -3,6 +3,23 @@ You are an AI assistant. Summarize the following document in 150 words or fewer:
 
 {content}
 """
+ENHANCED_QA_PROMPT = """
+You are an AI assistant that answers questions based on the provided context. 
+When answering, you should:
+1. Provide a clear, comprehensive answer
+2. Quote specific relevant portions from the context that support your answer
+3. If the context doesn't contain enough information, state that clearly
+
+Context: {context}
+
+Question: {question}
+
+Please provide your answer in the following format:
+ANSWER: [Your detailed answer here]
+
+SUPPORTING_QUOTES: [List the specific quotes from the context that support your answer, each on a new line with quotation marks]
+
+Answer:"""
 
 LOGIC_QUESTION_GEN_PROMPT = """Based on the following document content, generate exactly 3 multiple choice questions that test logical reasoning and comprehension. Each question should be directly related to the content provided.
 

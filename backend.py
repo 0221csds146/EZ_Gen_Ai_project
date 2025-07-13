@@ -9,35 +9,189 @@ from langchain.memory import ConversationBufferMemory
 import json
 import re
 from groq_llm import get_groq_llm
-from prompts import SUMMARY_PROMPT, LOGIC_QUESTION_GEN_PROMPT, EVALUATE_RESPONSE_PROMPT
+from prompts import SUMMARY_PROMPT, LOGIC_QUESTION_GEN_PROMPT, EVALUATE_RESPONSE_PROMPT,ENHANCED_QA_PROMPT
 
 # Initialize embedding model
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-# 1. Create Vector Store
+# Enhanced prompt for answer highlighting
+
+
+# 1. Create Vector Store with metadata
 def prepare_vector_store(raw_text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-    docs = [Document(page_content=chunk) for chunk in text_splitter.split_text(raw_text)]
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500, 
+        chunk_overlap=50,
+        separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
+    )
+    
+    chunks = text_splitter.split_text(raw_text)
+    docs = []
+    
+    for i, chunk in enumerate(chunks):
+        # Add metadata to each chunk for better tracking
+        doc = Document(
+            page_content=chunk,
+            metadata={
+                "chunk_id": i,
+                "chunk_length": len(chunk),
+                "start_char": raw_text.find(chunk),
+                "end_char": raw_text.find(chunk) + len(chunk)
+            }
+        )
+        docs.append(doc)
+    
     vector_store = FAISS.from_documents(docs, embeddings)
     return vector_store
 
 # 2. Generate Auto Summary
 def summarize_document(content):
-    # Limit to first ~4000 characters to avoid TPM issues
-    content = content[:4000]
+    content = content[:5000]
     llm = get_groq_llm()
     chain = LLMChain(llm=llm, prompt=PromptTemplate.from_template(SUMMARY_PROMPT))
     return chain.run(content=content)
 
-# 3. QA Chain (Ask Anything)
-def qa_chain(vector_store, query):
-    retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+# 3. Enhanced QA Chain with Answer Highlighting
+def qa_chain_with_highlighting(vector_store, query, conversation_memory=None):
+    """Enhanced QA with answer highlighting and optional memory"""
+    retriever = vector_store.as_retriever(search_kwargs={"k": 5})  # Get more context
     llm = get_groq_llm()
-    chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever, return_source_documents=True)
-    result = chain(query)
-    answer = result["result"]
-    references = [doc.page_content[:200] for doc in result["source_documents"]]
-    return answer, references
+    
+    # Get relevant documents
+    relevant_docs = retriever.get_relevant_documents(query)
+    
+    # Combine context from all relevant documents
+    context = "\n\n".join([doc.page_content for doc in relevant_docs])
+    
+    # Create enhanced prompt
+    prompt = PromptTemplate.from_template(ENHANCED_QA_PROMPT)
+    
+    # Add conversation memory if provided
+    if conversation_memory:
+        # Get conversation history
+        history = conversation_memory.chat_memory.messages
+        if history:
+            conversation_context = "\n".join([
+                f"Previous Q: {msg.content}" if msg.type == "human" else f"Previous A: {msg.content}"
+                for msg in history[-4:]  # Last 2 Q&A pairs
+            ])
+            context = f"Previous conversation:\n{conversation_context}\n\nCurrent context:\n{context}"
+    
+    # Generate answer
+    chain = LLMChain(llm=llm, prompt=prompt)
+    response = chain.run(context=context, question=query)
+    
+    # Parse response to separate answer and quotes
+    answer_parts = response.split("SUPPORTING_QUOTES:")
+    main_answer = answer_parts[0].replace("ANSWER:", "").strip()
+    
+    supporting_quotes = []
+    if len(answer_parts) > 1:
+        quotes_text = answer_parts[1].strip()
+        # Extract quotes (lines that start with quotes or contain quoted text)
+        for line in quotes_text.split('\n'):
+            line = line.strip()
+            if line and (line.startswith('"') or '"' in line):
+                supporting_quotes.append(line.strip('"'))
+    
+    # Find and highlight source snippets
+    highlighted_sources = []
+    for doc in relevant_docs:
+        snippet = doc.page_content
+        metadata = doc.metadata
+        
+        # Try to find overlapping content with supporting quotes
+        relevance_score = 0
+        for quote in supporting_quotes:
+            if quote.lower() in snippet.lower():
+                relevance_score += 1
+        
+        highlighted_sources.append({
+            "content": snippet,
+            "metadata": metadata,
+            "relevance_score": relevance_score,
+            "highlighted_parts": supporting_quotes
+        })
+    
+    # Sort by relevance
+    highlighted_sources.sort(key=lambda x: x["relevance_score"], reverse=True)
+    
+    return {
+        "answer": main_answer,
+        "supporting_quotes": supporting_quotes,
+        "highlighted_sources": highlighted_sources[:3],  # Top 3 most relevant
+        "all_sources": [doc.page_content for doc in relevant_docs]
+    }
+
+# 4. Memory-aware Conversational Chain
+class EnhancedConversationalChain:
+    def __init__(self, vector_store):
+        self.vector_store = vector_store
+        self.memory = ConversationBufferMemory(
+            memory_key="chat_history", 
+            return_messages=True,
+            output_key="answer"
+        )
+        self.llm = get_groq_llm()
+        
+    def ask_question(self, question):
+        """Ask a question with memory context"""
+        result = qa_chain_with_highlighting(
+            self.vector_store, 
+            question, 
+            self.memory
+        )
+        
+        # Save to memory
+        self.memory.save_context(
+            {"input": question},
+            {"answer": result["answer"]}
+        )
+        
+        return result
+    
+    def get_conversation_history(self):
+        """Get formatted conversation history"""
+        history = self.memory.chat_memory.messages
+        formatted_history = []
+        
+        for i in range(0, len(history), 2):
+            if i + 1 < len(history):
+                q = history[i].content
+                a = history[i + 1].content
+                formatted_history.append({"question": q, "answer": a})
+        
+        return formatted_history
+    
+    def clear_memory(self):
+        """Clear conversation memory"""
+        self.memory.clear()
+
+# 5. Text highlighting utility
+def highlight_text(text, phrases_to_highlight):
+    """Highlight specific phrases in text"""
+    if not phrases_to_highlight:
+        return text
+    
+    highlighted_text = text
+    for phrase in phrases_to_highlight:
+        if phrase and phrase.strip():
+            # Use case-insensitive matching
+            pattern = re.escape(phrase.strip())
+            highlighted_text = re.sub(
+                pattern, 
+                f"**{phrase.strip()}**", 
+                highlighted_text, 
+                flags=re.IGNORECASE
+            )
+    
+    return highlighted_text
+
+# 6. Legacy QA function for backward compatibility
+def qa_chain(vector_store, query):
+    """Legacy QA function - maintained for backward compatibility"""
+    result = qa_chain_with_highlighting(vector_store, query)
+    return result["answer"], result["all_sources"][:3]
 
 # Helper function to clean JSON response
 def clean_json_response(response):
@@ -135,7 +289,7 @@ def generate_fallback_questions(content):
         }
     ]
 
-# 4. Improved Challenge Me: Logic-Based Questions
+# 7. Improved Challenge Me: Logic-Based Questions
 def generate_logic_questions(content):
     """Generate logic-based questions with improved error handling"""
     
@@ -202,15 +356,13 @@ def generate_logic_questions(content):
     print("🔄 All attempts failed, using fallback questions based on document content")
     return generate_fallback_questions(content)
 
-# 5. Evaluate user's freeform answer to challenge question
+# 8. Evaluate user's freeform answer to challenge question
 def evaluate_user_response(document, question, response):
     llm = get_groq_llm()
     chain = LLMChain(llm=llm, prompt=PromptTemplate.from_template(EVALUATE_RESPONSE_PROMPT))
     return chain.run(context=document, question=question, response=response)
 
-# 6. Chat mode (conversational QA with memory)
+# 9. Legacy function for backward compatibility
 def get_conversational_chain(vector_store: FAISS):
-    llm = get_groq_llm()
-    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-    retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-    return ConversationalRetrievalChain.from_llm(llm=llm, retriever=retriever, memory=memory)
+    """Legacy function - use EnhancedConversationalChain instead"""
+    return EnhancedConversationalChain(vector_store)
