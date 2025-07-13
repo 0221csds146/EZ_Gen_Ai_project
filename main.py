@@ -259,7 +259,7 @@ with st.sidebar:
     
     # Display settings
     st.subheader("Display Settings")
-    max_sources = st.slider("Max Sources to Show", 1,3)
+    max_sources = st.slider("Max Sources to Show", 1,3,3)
 
 # File upload
 uploaded_file = st.file_uploader("Upload a PDF or TXT document", type=["pdf", "txt"])
