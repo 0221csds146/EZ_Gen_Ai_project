@@ -1,8 +1,16 @@
 # 📚 EZ GenAI – Smart Assistant for Research Summarization
 
 An AI-powered research assistant built with **Streamlit**, **LangChain**, and **Groq API**, designed to intelligently **summarize**, **query**, and **challenge users** with MCQs based on uploaded PDF/TXT research documents.
+---
+## 🎥 Demo Video
 
+[![YouTube](https://img.icons8.com/color/48/000000/youtube-play.png)](https://youtu.be/1HYg3_EKpG0)  
+**Video Link:** [Watch the demo video on YouTube](https://youtu.be/1HYg3_EKpG0)
+
+## Use this GenAI
 🔗 **Live App**: [https://ezgenaiproject-rajeevkumar.streamlit.app/](https://ezgenaiproject-rajeevkumar.streamlit.app/))
+
+---
 📜 **License**: [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/0221csds146/EZ_Gen_Ai_project/blob/main/LICENSE)
 
 ---
