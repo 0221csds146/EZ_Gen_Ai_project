@@ -11,7 +11,7 @@ except Exception:
     os.environ["GROQ_API_KEY"] = os.getenv("GROQ_API_KEY")
 
 # Reusable function to get the LLM with a supported model
-def get_groq_llm(model="groq-llama2-13b", temperature=0.0):
+def get_groq_llm(model="llama-3.1-70b-versatile", temperature=0.0):
     """
     Returns a ChatGroq instance using a supported Groq model.
     Parameters:
